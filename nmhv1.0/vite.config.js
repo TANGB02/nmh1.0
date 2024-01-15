@@ -2,7 +2,7 @@
  * @Author: TANGB02 13233582+Ace-Tang@user.noreply.gitee.com
  * @Date: 2023-12-19 09:21:02
  * @LastEditors: TANGB02 13233582+Ace-Tang@user.noreply.gitee.com
- * @LastEditTime: 2024-01-14 16:15:14
+ * @LastEditTime: 2024-01-15 09:33:10
  * @FilePath: \nmhv1.0\nmhv1.0\vite.config.js
  * @Description: 这是默认设置,请设置`customMade`, 打开koroFileHeader查看配置 进行设置: https://github.com/OBKoro1/koro1FileHeader/wiki/%E9%85%8D%E7%BD%AE
  */
@@ -16,7 +16,7 @@ export default defineConfig({
   server: {
     proxy: {
       "/api": {
-        target: "http://192.168.1.207:8080",
+        target: "http://10.159.205.124:8080",
         changeOrigin: true,
         secure: true,
         rewrite: (path) => path.replace(/^\/api/, ""),
@@ -34,10 +34,10 @@ export default defineConfig({
       ],
     }),
   ],
-  resolve: {
-    alias: {
-      //src 别名
-      "@": resolve(__dirname, "./src"),
-    },
-  },
+  // resolve: {
+  //   alias: {
+  //     //src 别名
+  //     "@": resolve(__dirname, "./src"),
+  //   },
+  // },
 });

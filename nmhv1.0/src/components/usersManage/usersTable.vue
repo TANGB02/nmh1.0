@@ -2,7 +2,7 @@
  * @Author: TANGB02 13233582+Ace-Tang@user.noreply.gitee.com
  * @Date: 2023-12-19 20:01:19
  * @LastEditors: TANGB02 13233582+Ace-Tang@user.noreply.gitee.com
- * @LastEditTime: 2024-01-04 14:42:16
+ * @LastEditTime: 2024-01-15 16:31:33
  * @FilePath: \nmhv1.0\nmhv1.0\src\components\usersManage\usersTable.vue
  * @Description: 这是默认设置,请设置`customMade`, 打开koroFileHeader查看配置 进行设置: https://github.com/OBKoro1/koro1FileHeader/wiki/%E9%85%8D%E7%BD%AE
 -->
@@ -14,8 +14,9 @@
       v-model:open="isOpen"
       :title="formData.userId ? '修改用户' : '新增用户'"
       @ok="handleOk"
+      @cancel="handleCancle"
     >
-      <a-form :model="formData" :rules="rules">
+      <a-form :model="formData" :rules="rules" ref="formRef">
         <a-form-item name="userName" label="人员名称">
           <a-input v-model:value="formData.userName"></a-input>
         </a-form-item>
@@ -25,7 +26,7 @@
         <a-form-item name="userStates" label="用户状态">
           <a-radio-group v-model:value="formData.userStates">
             <a-radio :value="1">启用</a-radio>
-            <a-radio :value="2">停用</a-radio>
+            <a-radio :value="0">停用</a-radio>
           </a-radio-group>
           <!-- <a-input v-model:value="formData.userStates"> </a-input> -->
         </a-form-item>
@@ -38,6 +39,7 @@
       :dataSource="dataSource"
       :pagination="pagination"
       @change="handleTableChange"
+      scrollToFirstError="true"
     >
       <template #bodyCell="obj">
         <div v-if="obj.column.dataIndex === 'todo'">
@@ -58,7 +60,7 @@
         </div>
         <div v-if="obj.column.dataIndex === 'userStates'">
           {{ obj.record.userStates ? "启用" : "停用" }}
-          <!-- {{ obj }} -->
+          <!-- {{ obj.record }} -->
         </div>
       </template>
     </a-table>
@@ -75,7 +77,7 @@ import {
   updateUsers,
   updateStates,
 } from "../../service/api";
-const value = ref(1);
+const formRef = ref();
 const columns = [
   {
     title: "登录账号",
@@ -138,28 +140,48 @@ const showModal = () => {
 const editUser = (record) => {
   isOpen.value = true;
   console.log(record);
-  record.userStates = record.userStates ? "启用" : "停用";
+  formData.value = {};
   formData.value = { ...record };
 };
 // 判断  新增/修改  (id)
-const handleOk = async () => {
-  if (formData.value.userId) {
-    //编辑
-    formData.value.userStates = formData.value.userStates === "启用" ? 1 : 0;
-    const res = await updateUsers({ ...formData.value });
-    if (res) {
-      message.success("修改成功");
-    }
-  } else {
-    // 新增
+const handleOk = () => {
+  formRef.value
+    .validate()
+    .then(async () => {
+      console.log("success");
 
-    formData.value.userStates = formData.value.userStates === "启用" ? 1 : 0;
-    await addUsers(formData.value);
-    pagination.current = 1;
-    message.success("新增成功");
-  }
-  getData();
-  isOpen.value = false;
+      if (formData.value.userId) {
+        //编辑
+
+        const res = await updateUsers({ ...formData.value });
+        if (res.code === 1) {
+          message.success("修改成功");
+          isOpen.value = false;
+        } else message.error("修改失败");
+      } else {
+        // 新增
+
+        console.log(formData.value);
+
+        const res = await addUsers(formData.value);
+        console.log(res);
+
+        pagination.value.current = 1;
+        message.success("新增成功");
+        formRef.value.resetFields(); //清除校验红标
+        isOpen.value = false;
+      }
+      getData();
+      formData.value = {};
+    })
+    .catch((error) => {
+      console.log("error", error);
+      // 滚动到第一个错误的字段
+      formData.value.scrollToField(errorFields[0].name[0]);
+    });
+};
+const handleCancle = () => {
+  formRef.value.resetFields(); //清除校验红标
   formData.value = {};
 };
 const confirm = async (userId) => {
@@ -192,30 +214,27 @@ const handleReset = (value) => {
   pagination.value.pageSize = 10;
   getData();
 };
+// 表单校验基本流程
+// 1.获取表单实例  ref
+// 2.制定校验规则（rules,validator） validator的callback已经废弃 使用promise执行回调
+// 3.提交时验证表单校验（formRef.value.validate().then().catch()）
+// 4.退出表单时清空表单内容和红标（resetFields()）
 
 //校验规则
 
 // 电话校验
-const validatorUserPhone = (rule, value, callback) => {
-  if (!/^1(3[0-9]|5[0-3,5-9]|7[1-3,5-8]|8[0-9])\d{8}$/.test(value))
-    return callback(new Error("请输入正确格式的手机号！"));
-  callback();
-};
-//姓名校验
-const validatorUserName = (rule, value, callback) => {
-  //验证名字的正则表达式
-  const regName = /^([\\u4e00-\\u9fa5]{1,20}|[a-zA-Z\\.\\s]{1,20})$/;
-  if (regName.test(value)) {
-    //正确的名字
-    return callback();
+const validatorUserPhone = (rule, value) => {
+  if (!/^1(3[0-9]|5[0-3,5-9]|7[1-3,5-8]|8[0-9])\d{8}$/.test(value)) {
+    return Promise.reject("请输入正确格式的手机号！");
+  } else {
+    return Promise.resolve();
   }
-  callback(new Error("请输入正确的名字"));
 };
+
 const rules = {
   userName: [
     { required: true, message: "请输入姓名", trigger: "blur" },
     {
-      validator: validatorUserName,
       min: 2,
       max: 8,
       message: "请输入正确的名字",
